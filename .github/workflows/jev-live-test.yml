@@ -28,7 +28,11 @@ jobs:
           ATTEMPTS: ${{ steps.retry.outputs.attempts }}
           RECOVERED: ${{ steps.retry.outputs.recovered }}
           CATEGORY: ${{ steps.retry.outputs.category }}
+          RETRY_PROBABILITY: ${{ steps.retry.outputs.retry-probability }}
+          CATEGORY_CONFIDENCE: ${{ steps.retry.outputs.category-confidence }}
         run: |
           printf 'attempts=%s\n' "$ATTEMPTS"
           printf 'recovered=%s\n' "$RECOVERED"
           printf 'category=%s\n' "$CATEGORY"
+          printf 'retry-probability=%s\n' "$RETRY_PROBABILITY"
+          printf 'category-confidence=%s\n' "$CATEGORY_CONFIDENCE"

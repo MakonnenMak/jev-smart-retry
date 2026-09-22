@@ -29,6 +29,12 @@ outputs:
   category:
     description: Last failure category, if Jev returned a valid result.
     value: ${{ steps.retry.outputs.category }}
+  retry-probability:
+    description: Noul retry probability from Jev's last valid decision, if available.
+    value: ${{ steps.retry.outputs.retry-probability }}
+  category-confidence:
+    description: Confidence in Jev's last selected failure category, if available.
+    value: ${{ steps.retry.outputs.category-confidence }}
 runs:
   using: composite
   steps:

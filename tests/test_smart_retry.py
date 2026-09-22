@@ -75,25 +75,86 @@ class SmartRetryTests(unittest.TestCase):
             ) as judge, patch("sys.stdout", new_callable=io.StringIO):
                 self.assertEqual(smart_retry.main(), 0)
             self.assertEqual(judge.call_count, 1)
-            self.assertIn("attempts=2\nrecovered=true\ncategory=network", output.read_text())
+            self.assertEqual(output.read_text(), (
+                "attempts=2\nrecovered=true\ncategory=network\n"
+                "retry-probability=0.96\ncategory-confidence=0.89\n"
+            ))
+
+    def test_success_before_jev_leaves_decision_outputs_empty(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "output"
+            env = {
+                "SMART_RETRY_COMMAND": "true",
+                "SMART_RETRY_API_KEY": "test-key",
+                "GITHUB_OUTPUT": str(output),
+            }
+            with patch.dict(os.environ, env), patch.object(smart_retry, "judge") as judge, patch(
+                "sys.stdout", new_callable=io.StringIO
+            ):
+                self.assertEqual(smart_retry.main(), 0)
+            judge.assert_not_called()
+            self.assertEqual(output.read_text(), (
+                "attempts=1\nrecovered=false\ncategory=\n"
+                "retry-probability=\ncategory-confidence=\n"
+            ))
 
     def test_deterministic_failure_preserves_exit_code(self):
-        env = {
-            "SMART_RETRY_COMMAND": "echo 'AssertionError'; exit 23",
-            "SMART_RETRY_API_KEY": "test-key",
-            "SMART_RETRY_DELAY": "0",
-        }
-        with patch.dict(os.environ, env), patch.object(
-            smart_retry, "judge", return_value=(0.99, "code_regression", 0.99)
-        ), patch("sys.stdout", new_callable=io.StringIO):
-            self.assertEqual(smart_retry.main(), 23)
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "output"
+            env = {
+                "SMART_RETRY_COMMAND": "echo 'AssertionError'; exit 23",
+                "SMART_RETRY_API_KEY": "test-key",
+                "SMART_RETRY_DELAY": "0",
+                "GITHUB_OUTPUT": str(output),
+            }
+            with patch.dict(os.environ, env), patch.object(
+                smart_retry, "judge", return_value=(0.99, "code_regression", 0.99)
+            ), patch("sys.stdout", new_callable=io.StringIO):
+                self.assertEqual(smart_retry.main(), 23)
+            self.assertEqual(output.read_text(), (
+                "attempts=1\nrecovered=false\ncategory=code_regression\n"
+                "retry-probability=0.99\ncategory-confidence=0.99\n"
+            ))
 
     def test_invalid_jev_response_fails_closed(self):
-        env = {"SMART_RETRY_COMMAND": "exit 4", "SMART_RETRY_API_KEY": "test-key"}
-        with patch.dict(os.environ, env), patch.object(
-            smart_retry, "judge", side_effect=ValueError("bad response")
-        ), patch("sys.stdout", new_callable=io.StringIO):
-            self.assertEqual(smart_retry.main(), 4)
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "output"
+            env = {
+                "SMART_RETRY_COMMAND": "exit 4",
+                "SMART_RETRY_API_KEY": "test-key",
+                "GITHUB_OUTPUT": str(output),
+            }
+            with patch.dict(os.environ, env), patch.object(
+                smart_retry, "judge", side_effect=ValueError("bad response")
+            ), patch("sys.stdout", new_callable=io.StringIO):
+                self.assertEqual(smart_retry.main(), 4)
+            self.assertEqual(output.read_text(), (
+                "attempts=1\nrecovered=false\ncategory=\n"
+                "retry-probability=\ncategory-confidence=\n"
+            ))
+
+    def test_multiple_jev_calls_report_last_decision(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "output"
+            env = {
+                "SMART_RETRY_COMMAND": "exit 7",
+                "SMART_RETRY_API_KEY": "test-key",
+                "SMART_RETRY_MAX_RETRIES": "2",
+                "SMART_RETRY_DELAY": "0",
+                "GITHUB_OUTPUT": str(output),
+            }
+            with patch.dict(os.environ, env), patch.object(
+                smart_retry, "judge", side_effect=[
+                    (0.96, "network", 0.89),
+                    (0.42, "code_regression", 0.97),
+                ]
+            ) as judge, patch("sys.stdout", new_callable=io.StringIO):
+                self.assertEqual(smart_retry.main(), 7)
+            self.assertEqual(judge.call_count, 2)
+            self.assertEqual(output.read_text(), (
+                "attempts=2\nrecovered=false\ncategory=code_regression\n"
+                "retry-probability=0.42\ncategory-confidence=0.97\n"
+            ))
 
     def test_missing_key_does_not_retry(self):
         env = {"SMART_RETRY_COMMAND": "exit 6", "SMART_RETRY_API_KEY": ""}

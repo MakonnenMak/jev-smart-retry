@@ -140,11 +140,17 @@ def judge(log, exit_code, api_key):
     return p, label, confidence
 
 
-def outputs(attempts, recovered, category):
+def outputs(attempts, recovered, category, retry_probability=None, category_confidence=None):
     path = os.environ.get("GITHUB_OUTPUT")
     if path:
         with open(path, "a", encoding="utf-8") as out:
-            out.write(f"attempts={attempts}\nrecovered={str(recovered).lower()}\ncategory={category}\n")
+            out.write(
+                f"attempts={attempts}\n"
+                f"recovered={str(recovered).lower()}\n"
+                f"category={category}\n"
+                f"retry-probability={retry_probability if retry_probability is not None else ''}\n"
+                f"category-confidence={category_confidence if category_confidence is not None else ''}\n"
+            )
 
 
 def main():
@@ -162,21 +168,23 @@ def main():
 
     api_key = os.getenv("SMART_RETRY_API_KEY", "")
     category = ""
+    retry_probability = None
+    category_confidence = None
     for attempt in range(1, max_retries + 2):
         print(f"Smart Retry: command attempt {attempt}/{max_retries + 1}", flush=True)
         try:
             code, log = run_command(command)
         except OSError as exc:
             print(f"::error::Could not start command: {exc}", file=sys.stderr)
-            outputs(attempt, False, category)
+            outputs(attempt, False, category, retry_probability, category_confidence)
             return 1
         if code == 0:
-            outputs(attempt, attempt > 1, category)
+            outputs(attempt, attempt > 1, category, retry_probability, category_confidence)
             print("Smart Retry: command passed.")
             return 0
         if attempt > max_retries or not api_key:
             print("Smart Retry: failed; no more retries or Jev API key unavailable.")
-            outputs(attempt, False, category)
+            outputs(attempt, False, category, retry_probability, category_confidence)
             return code if 0 < code <= 255 else 1
         try:
             p, category, confidence = judge(log, code, api_key)
@@ -184,10 +192,12 @@ def main():
             print(f"Smart Retry: Jev unavailable or invalid response ({type(exc).__name__}); leaving failure intact.")
             outputs(attempt, False, "")
             return code if 0 < code <= 255 else 1
+        retry_probability = p
+        category_confidence = confidence
         print(f"Smart Retry: {category}; retry probability {p:.2f}; category confidence {confidence:.2f}.")
         if p < threshold or category not in RETRYABLE or confidence < min_confidence:
             print("Smart Retry: threshold not met; leaving failure intact.")
-            outputs(attempt, False, category)
+            outputs(attempt, False, category, retry_probability, category_confidence)
             return code if 0 < code <= 255 else 1
         print(f"Smart Retry: retrying in {delay}s.")
         time.sleep(delay)
