@@ -1,0 +1,45 @@
+name: Jev Smart Retry
+description: Retry a failing shell command only when Jev judges the failure retryable.
+inputs:
+  command:
+    description: Shell command to run under bash with pipefail.
+    required: true
+  typesafe-api-key:
+    description: TypeSafe AI API key. Used only after the command fails.
+    required: true
+  max-retries:
+    description: Maximum additional attempts (0-5).
+    default: '2'
+  retry-threshold:
+    description: Minimum Noul probability to retry (0-1).
+    default: '0.90'
+  category-confidence:
+    description: Minimum confidence in the retryable failure category (0-1).
+    default: '0.75'
+  retry-delay-seconds:
+    description: Delay between attempts (0-60 seconds).
+    default: '2'
+outputs:
+  attempts:
+    description: Total command executions.
+    value: ${{ steps.retry.outputs.attempts }}
+  recovered:
+    description: 'true if an initial failure passed on retry.'
+    value: ${{ steps.retry.outputs.recovered }}
+  category:
+    description: Last failure category, if Jev returned a valid result.
+    value: ${{ steps.retry.outputs.category }}
+runs:
+  using: composite
+  steps:
+    - id: retry
+      shell: bash
+      run: python3 "$GITHUB_ACTION_PATH/src/smart_retry.py"
+      env:
+        GITHUB_ACTION_PATH: ${{ github.action_path }}
+        SMART_RETRY_COMMAND: ${{ inputs.command }}
+        SMART_RETRY_API_KEY: ${{ inputs.typesafe-api-key }}
+        SMART_RETRY_MAX_RETRIES: ${{ inputs.max-retries }}
+        SMART_RETRY_THRESHOLD: ${{ inputs.retry-threshold }}
+        SMART_RETRY_CATEGORY_CONFIDENCE: ${{ inputs.category-confidence }}
+        SMART_RETRY_DELAY: ${{ inputs.retry-delay-seconds }}
