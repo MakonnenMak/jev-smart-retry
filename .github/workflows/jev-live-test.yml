@@ -1,0 +1,34 @@
+name: Jev live test
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  live-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test a synthetic timeout and recovery
+        id: retry
+        uses: ./
+        with:
+          command: |
+            marker="$RUNNER_TEMP/jev-smart-retry-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+            if [ ! -e "$marker" ]; then
+              touch "$marker"
+              printf '%s\n' 'curl: (28) Connection timed out after 10000 milliseconds'
+              exit 28
+            fi
+            printf '%s\n' 'Passed on retry'
+          typesafe-api-key: ${{ secrets.TYPESAFE_API_KEY }}
+          max-retries: '1'
+      - name: Show retry outputs
+        if: always()
+        env:
+          ATTEMPTS: ${{ steps.retry.outputs.attempts }}
+          RECOVERED: ${{ steps.retry.outputs.recovered }}
+          CATEGORY: ${{ steps.retry.outputs.category }}
+        run: |
+          printf 'attempts=%s\n' "$ATTEMPTS"
+          printf 'recovered=%s\n' "$RECOVERED"
+          printf 'category=%s\n' "$CATEGORY"

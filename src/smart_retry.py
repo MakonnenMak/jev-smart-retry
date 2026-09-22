@@ -55,8 +55,11 @@ def tail_append(chunks, length, text):
 
 def run_command(command):
     """Stream output and retain only a bounded tail for the model."""
+    child_env = os.environ.copy()
+    child_env.pop("SMART_RETRY_API_KEY", None)
     process = subprocess.Popen(
         ["bash", "-o", "pipefail", "-c", command],
+        env=child_env,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         text=True,

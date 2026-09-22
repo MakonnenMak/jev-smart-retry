@@ -34,6 +34,17 @@ class FakeResponse:
 
 
 class SmartRetryTests(unittest.TestCase):
+    def test_command_cannot_read_api_key(self):
+        with patch.dict(os.environ, {
+            "SMART_RETRY_API_KEY": "test-key",
+            "SMART_RETRY_VISIBLE": "visible",
+        }):
+            code, output = smart_retry.run_command(
+                'test "$SMART_RETRY_VISIBLE" = visible && test -z "${SMART_RETRY_API_KEY+x}"'
+            )
+        self.assertEqual(code, 0)
+        self.assertEqual(output, "")
+
     def test_api_payload_and_response(self):
         def fake_open(req, timeout):
             self.assertEqual(timeout, 8)
