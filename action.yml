@@ -1,5 +1,8 @@
 name: Jev Smart Retry
 description: Retry a failing shell command only when Jev judges the failure retryable.
+branding:
+  icon: refresh-cw
+  color: blue
 inputs:
   command:
     description: Shell command to run under bash with pipefail.
