@@ -48,6 +48,6 @@ The Action can fail after Jev declines a retry. Add this step after the example 
   run: printf '%s\n' "$RETRY_OUTPUTS"
 ```
 
-For real CI failures, record the command, a redacted failure signature, Jev's category and scores, whether it retried and passed, and whether a human thought the retry was appropriate. Include known transient failures and deterministic regressions. Group the results by category and probability range. Track incorrect retries and missed recoveries separately. A declined retry has an unknown outcome unless an independent rerun of the same command passes. Review real examples before changing the defaults or setting workflow-specific values.
+Try it on real CI failures and compare Jev's decision with what happened. Keep the defaults until you have enough examples to decide whether your workflows need different values.
 
 Run the unit tests with `python3 -m unittest discover -s tests -v`. A [manual live test](.github/workflows/jev-live-test.yml) ran with a synthetic timeout. Jev declined the retry at the default threshold. This does not show how well Jev works on real CI failures.
