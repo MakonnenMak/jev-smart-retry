@@ -32,7 +32,7 @@ The command runs in Bash with `pipefail`; each retry starts a fresh shell but ke
 | `category-confidence` | `0.75` | Minimum category confidence |
 | `retry-delay-seconds` | `2` | Seconds between attempts, 0–60 |
 
-Jev must meet both thresholds and choose `network`, `runner`, `test_flake`, or `dependency` to trigger a retry. The Action sends the exit code and up to 12,000 characters of failed command output to Jev. Avoid commands that print secrets or private data; redaction is best effort.
+Jev must meet both thresholds and choose `network`, `runner`, `test_flake`, or `dependency` to trigger a retry. These are global defaults for the Action; set the inputs per workflow when your CI has a different risk tolerance. Category-specific thresholds are intentionally left to the caller rather than built into the Action. The Action sends the exit code and up to 12,000 characters of failed command output to Jev. Avoid commands that print secrets or private data; redaction is best effort.
 
 Outputs: `attempts`, `recovered`, `category`, `retry-probability`, and `category-confidence`. The scores are between 0 and 1 and reflect the last valid Jev decision, including a decision to decline a retry. They are empty if Jev was not called or its call failed. The key and raw log are never outputs.
 
@@ -48,6 +48,6 @@ The Action can fail after declining a retry. Add this step after the example abo
   run: printf '%s\n' "$RETRY_OUTPUTS"
 ```
 
-For real CI failures, record the command, a redacted failure signature, Jev's category and two scores, whether it retried and passed, and whether a human judged the retry appropriate. Include known transient failures and deterministic regressions. Summarize by category and probability range; track incorrect retries and missed recoveries separately. A declined retry's outcome is unknown unless an independent rerun of the unchanged command shows it would pass. Review real examples before changing the default thresholds.
+For real CI failures, record the command, a redacted failure signature, Jev's category and two scores, whether it retried and passed, and whether a human judged the retry appropriate. Include known transient failures and deterministic regressions. Summarize by category and probability range; track incorrect retries and missed recoveries separately. A declined retry's outcome is unknown unless an independent rerun of the unchanged command shows it would pass. Review real examples before changing the default thresholds or choosing workflow-specific values.
 
 Run the unit tests with `python3 -m unittest discover -s tests -v`. A [manual live test](.github/workflows/jev-live-test.yml) ran once with a synthetic timeout; Jev declined the retry at the default threshold. That test does not establish accuracy on real CI failures.
